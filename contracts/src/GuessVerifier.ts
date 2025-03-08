@@ -7,23 +7,16 @@ export class GuessVerifier {
   zkAppPrivateKey: PrivateKey;
   zkAppAddress: Field;
 
-  constructor(zkAppInstance: WordCommitment, salt: Field, zkAppPrivateKey: PrivateKey) {
+  constructor(zkAppInstance: WordCommitment, zkAppPrivateKey: PrivateKey) {
     this.zkAppInstance = zkAppInstance;
-    this.salt = salt;
     this.zkAppPrivateKey = zkAppPrivateKey;
-  }
-
-  // Utility function: Hash a string into a Field
-  static hashString(str: string): Field {
-    const charCodes = str.split('').map(c => c.charCodeAt(0)); // Convert string to numbers
-    return Poseidon.hash(charCodes.map(n => new Field(n))); // Hash the numbers
   }
 
   // Verify a user's guess
   async verifyGuess(guesserAccount: PrivateKey, guess: string) {
     try {
       const txn = await Mina.transaction(guesserAccount.toPublicKey(), async () => {
-        await this.zkAppInstance.verifyGuess(this.salt, CircuitString.fromString(guess));
+        await this.zkAppInstance.verifyGuess(CircuitString.fromString(guess));
       });
 
       await txn.prove();

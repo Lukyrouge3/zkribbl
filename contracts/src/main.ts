@@ -24,7 +24,7 @@ const zkAppInstance = new WordCommitment(zkAppAddress);
 const deployTxn = await Mina.transaction(deployerAccount, async () => {
   AccountUpdate.fundNewAccount(deployerAccount);
   await zkAppInstance.deploy();
-  await zkAppInstance.initState(salt, CircuitString.fromString("Apple"));
+  await zkAppInstance.initState(CircuitString.fromString("Apple"));
 });
 await deployTxn.prove();
 await deployTxn.sign([deployerKey, zkAppPrivateKey]).send();
@@ -37,7 +37,7 @@ console.log("State after init:", num0.toString());
 
 // ----------------------------------------------------
 // Verify guesses using GuessVerifier
-const verifier = new GuessVerifier(zkAppInstance, salt, zkAppPrivateKey);
+const verifier = new GuessVerifier(zkAppInstance, zkAppPrivateKey);
 
 // Correct guess
 await verifier.verifyGuess(senderKey, "Apple");
