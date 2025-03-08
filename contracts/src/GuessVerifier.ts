@@ -14,16 +14,11 @@ export class GuessVerifier {
 
   // Verify a user's guess
   async verifyGuess(guesserAccount: PrivateKey, guess: string) {
-    try {
-      const txn = await Mina.transaction(guesserAccount.toPublicKey(), async () => {
-        await this.zkAppInstance.verifyGuess(CircuitString.fromString(guess));
-      });
+    const txn = await Mina.transaction(guesserAccount.toPublicKey(), async () => {
+      await this.zkAppInstance.verifyGuess(CircuitString.fromString(guess));
+    });
 
-      await txn.prove();
-      await txn.sign([guesserAccount]).send();
-      console.log(`✅ Guess "${guess}" is correct!`);
-    } catch (error: any) {
-      console.log(`❌ Guess "${guess}" is incorrect.`);
-    }
+    await txn.prove();
+    await txn.sign([guesserAccount]).send();
   }
 }
