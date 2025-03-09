@@ -16,12 +16,22 @@ import { Server } from 'socket.io';
 
 // Setup express app
 const app = express();
-app.use(cors());
 const server = http.createServer(app);
 const port = 8080;
+app.use(cors());
+
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST'],
+  },
+  allowEIO3: true, // false by default
+});
 
 // Middleware to parse JSON bodies
-app.use(express.json());
+app.use('/deploy', express.json());
+app.use('/verify-guess', express.json());
+app.use('/verify-gamestate', express.json());
 
 // Start local blockchain
 const useProof = false;
@@ -38,9 +48,9 @@ const zkAppPrivateKey = PrivateKey.random();
 const zkAppAddress = zkAppPrivateKey.toPublicKey();
 const zkAppInstance = new GameCommitment(zkAppAddress);
 
+let gs: GameState;
 app.post('/deploy', async (req: Request, res: any) => {
   const { word } = req.body;
-  Mina.setActiveInstance(Local);
   console.log(req.body);
   if (!word) {
     return res.status(400).json({ error: 'No word provided' });
@@ -53,6 +63,7 @@ app.post('/deploy', async (req: Request, res: any) => {
       playerWhoGuessedCount: Field(0),
       gameEnded: Bool(false),
     });
+    gs = gameState;
     const deployTxn = await Mina.transaction(deployerAccount, async () => {
       AccountUpdate.fundNewAccount(deployerAccount);
       await zkAppInstance.deploy();
@@ -70,6 +81,29 @@ app.post('/deploy', async (req: Request, res: any) => {
   }
 });
 
+app.post('/verify-gamestate', async (req: Request, res: any) => {
+  const { gameState } = req.body;
+
+  // if (!gameState) {
+  //   return res.status(400).json({ error: 'No game state provided' });
+  // }
+
+  try {
+    // Use GuessVerifier to check the guess
+    const verifier = new Verifier(zkAppInstance, zkAppPrivateKey);
+
+    // Verify the guess
+    await verifier.verifyGame(senderAccount.key, gs);
+
+    console.log('✅ Game state is correct!');
+
+    return res.status(200).json({ message: '✅ Game state is correct!' });
+  } catch (error) {
+    console.log('❌ Game state is incorrect.');
+    return res.status(400).json({ message: '❌ Game state is incorrect.' });
+  }
+});
+
 // REST endpoint to verify a guess
 app.post('/verify-guess', async (req: Request, res: any) => {
   const { guess, gameState } = req.body;
@@ -83,7 +117,7 @@ app.post('/verify-guess', async (req: Request, res: any) => {
     const verifier = new Verifier(zkAppInstance, zkAppPrivateKey);
 
     // Verify the guess
-    await verifier.verifyGuess(senderAccount.key, guess, gameState);
+    await verifier.verifyGuess(senderAccount.key, guess, gs);
 
     console.log(`✅ Guess "${guess}" is correct!`);
 
@@ -94,13 +128,6 @@ app.post('/verify-guess', async (req: Request, res: any) => {
       .status(400)
       .json({ message: `❌ Guess "${guess}" is incorrect.` });
   }
-});
-
-const io = new Server(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
-  },
 });
 
 io.on('connection', (socket: any) => {

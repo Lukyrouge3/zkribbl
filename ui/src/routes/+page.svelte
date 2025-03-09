@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { io, Socket } from 'socket.io-client';
+	import axios from 'axios';
 	let canvas: HTMLCanvasElement | undefined = $state();
 	const colors = [
 		'#000000',
@@ -21,6 +22,7 @@
 	let guessing = $state(false);
 	let gameState: any = $state();
 	let word = $state('Apple');
+	let gameLoading = $state(false);
 
 	let socket: Socket;
 
@@ -68,7 +70,7 @@
 			img.src = data;
 		});
 
-		socket.on('guess', (g: string, valid: boolean) => {
+		socket.on('guess', async (g: string, valid: boolean) => {
 			guessed = valid;
 			guesses = [...guesses, guess];
 			guess = '';
@@ -78,6 +80,12 @@
 
 		socket.on('error', (err: string) => {
 			console.error(err);
+		});
+
+		socket.on('updateGameState', async (gs: any) => {
+			const res = await axios.post('http://localhost:8080/verify-gamestate', { gameState });
+			if (res.status != 200) return alert('The game state is invalid');
+			gameState = gs;
 		});
 	});
 
@@ -97,12 +105,20 @@
 		guessing = true;
 
 		guess = guess.trim().toLowerCase();
-
+		const res = await axios.post('http://localhost:8080/verify-guess', { guess, gameState });
+		if (res.status == 200) {
+			guessed = true;
+			socket.emit('updateGameState', gameState);
+		}
+		guesses = [...guesses, guess];
+		guess = '';
+		guessing = false;
 		// Send guess to server
 		socket.emit('guess', guess);
 	}
 
 	async function createGame() {
+		gameLoading = true;
 		const res = await fetch('http://localhost:8080/deploy', {
 			method: 'POST',
 			body: JSON.stringify({ word }),
@@ -111,6 +127,8 @@
 			}
 		});
 		gameState = (await res.json()).gameState;
+		socket.emit('updateGameState', gameState);
+		gameLoading = false;
 		console.log(gameState);
 	}
 </script>
@@ -163,5 +181,10 @@
 		</form>
 	</div>
 </div>
+<!-- {#if gameState} -->
 <button onclick={createGame}>Create game</button>
 <input type="text" bind:value={word} />
+<!-- {/if} -->
+{#if gameLoading}
+	<span>LOADING...</span>
+{/if}
