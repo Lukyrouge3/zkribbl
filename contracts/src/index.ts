@@ -1,3 +1,3 @@
-import { WordCommitment } from './WordCommitment.js';
+import { GameCommitment } from './smartContract.js';
 
-export { WordCommitment };
+export { GameCommitment as WordCommitment };

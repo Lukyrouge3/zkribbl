@@ -1,0 +1,59 @@
+@startuml
+actor GameOwner
+database Mina
+database Backend
+actor Player
+group init [Initialization]
+GameOwner -> Mina: Deploy the smart contract
+GameOwner -> Mina: Set the initialState with the game object's hash
+GameOwner -> Mina: Sign and send
+GameOwner -> Backend: Send the game object
+Player -> Backend: Request game object
+Backend -> Player: Send the game object
+Player -> Mina: Compare game object hash with smart contract
+end
+group gameLoop [Game loop]
+GameOwner -> Backend: Send drawing
+Backend -> Player: Send the drawing
+Player -> Mina: Try to guess the game.word
+note right
+When we try to guess
+we also send the game
+object updated as if
+the guess was right
+end note
+alt Good guess
+Mina [#green]-> Player: The guess is right
+Player [#green]-> Mina: Update, proof and sign the new game object's hash
+Player [#green]-> Backend: Update the game object
+note right
+When the game object is sent
+from backend to all players,
+everyone checks with the blockchain
+that the "new" game object is correct.
+end note
+Backend [#green]-> Player: Update the game object
+Backend [#green]-> GameOwner: Update the game object
+else Wrong guess
+Mina [#red]-> Player: The guess is wrong
+end
+group endGame [Ending the game]
+GameOwner -> Mina: End the game
+note left
+Something like 
+endGame(signedStop, currentGame, expectedGame)
+With signedStop a signed string "stop" with
+the publicKey of the owner.
+The smart contract checks that the currentGame
+is valid. Then checks if the signature
+was made with the privateKey associated with
+currentGame.ownerPublicKey. If all goes well
+then updates the game's hash with the
+expectedGame.
+end note
+Mina -> Backend: Update the game
+Backend -> Player: Update the game
+Backend -> GameOwner: Update the game
+end
+end
+@enduml
