@@ -1,4 +1,14 @@
 {
   "version": 1,
-  "deployAliases": {}
+  "deployAliases": {
+    "zkribbl": {
+      "networkId": "testnet",
+      "url": "https://api.minascan.io/node/devnet/v1/graphql",
+      "keyPath": "keys/zkribbl.json",
+      "feepayerKeyPath": "/Users/alexislimozin/.cache/zkapp-cli/keys/alexis.json",
+      "feepayerAlias": "alexis",
+      "fee": "0.1",
+      "smartContract": "WordCommitment"
+    }
+  }
 }
