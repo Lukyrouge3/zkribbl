@@ -1,132 +1,151 @@
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import { io, Socket } from 'socket.io-client';
+	let canvas: HTMLCanvasElement | undefined = $state();
+	const colors = [
+		'#000000',
+		'#FF0000',
+		'#00FF00',
+		'#0000FF',
+		'#FFFF00',
+		'#FF00FF',
+		'#00FFFF',
+		'#FFFFFF'
+	];
+	let sizes = [1, 2, 5, 10, 20];
+	let colorIndex = $state(0);
+	let sizeIndex = $state(2);
+	let guesses = $state<string[]>([]);
+	let guess = $state('');
+	let guessed = $state(false);
+	let guessing = $state(false);
 
-<script>
-  import heroMinaLogo from '$lib/assets/hero-mina-logo.svg'
-  import arrowRightSmall from '$lib/assets/arrow-right-small.svg'
-  import GradientBG from './GradientBG.svelte'
-  import { onMount } from 'svelte'
-  import { Mina, PublicKey } from 'o1js'
+	let socket: Socket;
 
-  onMount(async () => {
-    const { Add } = await import('../../../contracts/build/src/')
+	onMount(() => {
+		if (!canvas) return;
+		if (!socket) socket = io('http://localhost:3001');
 
-    // Update this to use the address (public key) for your zkApp account.
-    // To try it out, you can try this address for an example "Add" smart contract that we've deployed to
-    // Testnet B62qnTDEeYtBHBePA4yhCt4TCgDtA4L2CGvK7PirbJyX4pKH8bmtWe5 .
-    const zkAppAddress = ''
-    // This should be removed once the zkAppAddress is updated.
-    if (!zkAppAddress) {
-      console.error(
-        'The following error is caused because the zkAppAddress has an empty string as the public key. Update the zkAppAddress with the public key for your zkApp account, or try this address for an example "Add" smart contract that we deployed to Testnet: B62qnTDEeYtBHBePA4yhCt4TCgDtA4L2CGvK7PirbJyX4pKH8bmtWe5',
-      )
-    }
-    //const zkApp = new Add(PublicKey.fromBase58(zkAppAddress))
-  })
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+
+		let isDrawing = false;
+		let lastX = 0;
+		let lastY = 0;
+
+		canvas.addEventListener('mousedown', (e) => {
+			isDrawing = true;
+			[lastX, lastY] = [e.offsetX, e.offsetY];
+		});
+
+		canvas.addEventListener('mousemove', (e) => {
+			if (!isDrawing) return;
+
+			ctx.strokeStyle = colors[colorIndex];
+			ctx.lineWidth = sizes[sizeIndex];
+			ctx.lineJoin = 'round';
+			ctx.lineCap = 'round';
+
+			ctx.beginPath();
+			ctx.moveTo(lastX, lastY);
+			ctx.lineTo(e.offsetX, e.offsetY);
+			ctx.stroke();
+
+			[lastX, lastY] = [e.offsetX, e.offsetY];
+			socket.emit('drawing', canvas!.toDataURL());
+			console.log('emitted');
+		});
+
+		canvas.addEventListener('mouseup', () => (isDrawing = false));
+		canvas.addEventListener('mouseout', () => (isDrawing = false));
+
+		// Send the drawing to the server
+		socket.on('drawing', (data: string) => {
+			const img = new Image();
+			img.onload = () => ctx.drawImage(img, 0, 0);
+			img.src = data;
+		});
+
+		socket.on('guess', (g: string, valid: boolean) => {
+			guessed = valid;
+			guesses = [...guesses, guess];
+			guess = '';
+
+			guessing = false;
+		});
+
+		socket.on('error', (err: string) => {
+			console.error(err);
+		});
+	});
+
+	function clear() {
+		if (!canvas) return;
+
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		socket.emit('drawing', canvas.toDataURL());
+	}
+
+	async function tryGuess(e: Event) {
+		e.preventDefault();
+		if (!guess || guessed || guessing) return;
+		guessing = true;
+
+		guess = guess.trim().toLowerCase();
+
+		// Send guess to server
+		socket.emit('guess', guess);
+	}
 </script>
 
-<style global>
-  @import '../styles/Home.module.css';
-</style>
-
 <svelte:head>
-  <title>Mina zkApp UI</title>
+	<title>ZKribbl</title>
 </svelte:head>
-<GradientBG>
-  <main class="main">
-    <div class="center">
-      <a
-        href="https://minaprotocol.com/"
-        target="_blank"
-        rel="noopener noreferrer">
-        <img
-          class="logo"
-          src={heroMinaLogo}
-          alt="Mina Logo"
-          width="191"
-          height="174"
-          priority />
-      </a>
-      <p class="tagline">
-        built with
-        <code class="code">o1js</code>
-      </p>
-    </div>
-    <p class="start">
-      Get started by editing
-      <code class="code">src/routes/+page.svelte</code>
-    </p>
-    <div class="grid">
-      <a
-        href="https://docs.minaprotocol.com/zkapps"
-        class="card"
-        target="_blank"
-        rel="noopener noreferrer">
-        <h2>
-          <span>DOCS</span>
-          <div>
-            <img
-              src={arrowRightSmall}
-              alt="Mina Logo"
-              width={16}
-              height={16}
-              priority />
-          </div>
-        </h2>
-        <p>Explore zkApps, how to build one, and in-depth references</p>
-      </a>
-      <a
-        href="https://docs.minaprotocol.com/zkapps/tutorials/hello-world"
-        class="card"
-        target="_blank"
-        rel="noopener noreferrer">
-        <h2>
-          <span>TUTORIALS</span>
-          <div>
-            <img
-              src={arrowRightSmall}
-              alt="Mina Logo"
-              width={16}
-              height={16}
-              priority />
-          </div>
-        </h2>
-        <p>Learn with step-by-step o1js tutorials</p>
-      </a>
-      <a
-        href="https://discord.gg/minaprotocol"
-        class="card"
-        target="_blank"
-        rel="noopener noreferrer">
-        <h2>
-          <span>QUESTIONS</span>
-          <div>
-            <img
-              src={arrowRightSmall}
-              alt="Mina Logo"
-              width={16}
-              height={16}
-              priority />
-          </div>
-        </h2>
-        <p>Ask questions on our Discord server</p>
-      </a>
-      <a
-        href="https://docs.minaprotocol.com/zkapps/how-to-deploy-a-zkapp"
-        class="card"
-        target="_blank"
-        rel="noopener noreferrer">
-        <h2>
-          <span>DEPLOY</span>
-          <div>
-            <img
-              src={arrowRightSmall}
-              alt="Mina Logo"
-              width={16}
-              height={16}
-              priority />
-          </div>
-        </h2>
-        <p>Deploy a zkApp to Testnet</p>
-      </a>
-    </div>
-  </main>
-</GradientBG>
+
+<div class="flex flex-row">
+	<div>
+		<canvas width="600" height="600" bind:this={canvas} class="border border-gray-700"></canvas>
+		<div class="h-10">
+			{#each colors as color, i}
+				<button
+					onclick={() => (colorIndex = i)}
+					class="h-8 w-8 text-transparent transition-all duration-200 hover:size-10 {colorIndex ===
+					i
+						? 'h-10 w-10 border-2'
+						: ''}"
+					style="background-color: {color}">.</button
+				>
+			{/each}
+		</div>
+		<div class="h-10">
+			{#each sizes as size, i}
+				<button
+					onclick={() => (sizeIndex = i)}
+					class="mx-1 h-8 w-8 border-collapse border transition-all duration-200 hover:size-10 {sizeIndex ===
+					i
+						? 'border-2'
+						: ''}"
+				>
+					{size}
+				</button>
+			{/each}
+		</div>
+		<button onclick={clear}>Clear</button>
+	</div>
+	<div>
+		<div class="flex flex-col">
+			{#each guesses as g, i}
+				<span class={guessed && guesses.length - 1 == i ? 'text-green-500' : 'text-red-500'}>
+					{g}
+				</span>
+			{/each}
+		</div>
+		<form onsubmit={tryGuess}>
+			<input type="text" bind:value={guess} placeholder="Guess..." disabled={guessed || guessing} />
+			<button type="submit" disabled={guessed || guessing}>Guess</button>
+		</form>
+	</div>
+</div>
