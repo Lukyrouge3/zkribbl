@@ -1,9 +1,7 @@
 import express, { Request, Response } from 'express';
 import http from 'http';
-//@ts-ignore
-import bodyParser from 'body-parser';
 import { GameCommitment, GameState, MAX_PLAYERS } from './smartContract.js';
-import { Verifier } from './verifier';
+import { Verifier } from './verifier.js';
 import {
   Field,
   CircuitString,
@@ -14,14 +12,16 @@ import {
   Bool,
 } from 'o1js';
 import { Server } from 'socket.io';
+import cors from 'cors';
 
 // Setup express app
 const app = express();
+app.use(cors());
 const server = http.createServer(app);
 const port = 8080;
 
 // Middleware to parse JSON bodies
-app.use(bodyParser.json());
+app.use(express.json());
 
 // Start local blockchain
 const useProof = false;
@@ -40,6 +40,7 @@ const zkAppInstance = new GameCommitment(zkAppAddress);
 
 app.post('/deploy', async (req: Request, res: any) => {
   const { word } = req.body;
+  console.log(req.body);
   if (!word) {
     return res.status(400).json({ error: 'No word provided' });
   }
@@ -94,7 +95,12 @@ app.post('/verify-guess', async (req: Request, res: any) => {
   }
 });
 
-const io = new Server(server);
+const io = new Server(server, {
+  cors: {
+    origin: 'http://localhost:5173',
+    methods: ['GET', 'POST'],
+  },
+});
 
 io.on('connection', (socket) => {
   // console.log(`socket ${socket.id} connected`);

@@ -14,7 +14,18 @@ import {
 export const MAX_PLAYERS = 10;
 
 export class GameState extends Struct({
-  scores: [PublicKey, MAX_PLAYERS],
+  scores: [
+    PublicKey,
+    PublicKey,
+    PublicKey,
+    PublicKey,
+    PublicKey,
+    PublicKey,
+    PublicKey,
+    PublicKey,
+    PublicKey,
+    PublicKey,
+  ],
   ownerKey: PublicKey,
   playerWhoGuessedCount: Field,
   gameEnded: Bool,

@@ -19,12 +19,14 @@
 	let guess = $state('');
 	let guessed = $state(false);
 	let guessing = $state(false);
+	let gameState: any = $state();
+	let word = $state('Apple');
 
 	let socket: Socket;
 
 	onMount(() => {
 		if (!canvas) return;
-		if (!socket) socket = io('http://localhost:3001');
+		if (!socket) socket = io('http://localhost:8080');
 
 		const ctx = canvas.getContext('2d');
 		if (!ctx) return;
@@ -99,6 +101,18 @@
 		// Send guess to server
 		socket.emit('guess', guess);
 	}
+
+	async function createGame() {
+		const res = await fetch('http://localhost:8080/deploy', {
+			method: 'POST',
+			body: JSON.stringify({ word }),
+			headers: {
+				'Content-Type': 'application/json'
+			}
+		});
+		gameState = (await res.json()).gameState;
+		console.log(gameState);
+	}
 </script>
 
 <svelte:head>
@@ -149,3 +163,5 @@
 		</form>
 	</div>
 </div>
+<button onclick={createGame}>Create game</button>
+<input type="text" bind:value={word} />
