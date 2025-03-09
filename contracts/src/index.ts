@@ -1,3 +1,3 @@
-import { Add } from './Add.js';
+import { WordCommitment } from './WordCommitment.js';
 
-export { Add };
+export { WordCommitment };
