@@ -11,8 +11,8 @@ import {
   PublicKey,
   Bool,
 } from 'o1js';
-import { Server } from 'socket.io';
 import cors from 'cors';
+import { Server } from 'socket.io';
 
 // Setup express app
 const app = express();
@@ -40,6 +40,7 @@ const zkAppInstance = new GameCommitment(zkAppAddress);
 
 app.post('/deploy', async (req: Request, res: any) => {
   const { word } = req.body;
+  Mina.setActiveInstance(Local);
   console.log(req.body);
   if (!word) {
     return res.status(400).json({ error: 'No word provided' });
@@ -97,24 +98,24 @@ app.post('/verify-guess', async (req: Request, res: any) => {
 
 const io = new Server(server, {
   cors: {
-    origin: 'http://localhost:5173',
+    origin: '*',
     methods: ['GET', 'POST'],
   },
 });
 
-io.on('connection', (socket) => {
+io.on('connection', (socket: any) => {
   // console.log(`socket ${socket.id} connected`);
 
-  socket.on('disconnect', (reason) => {
+  socket.on('disconnect', (reason: any) => {
     // console.log(`socket ${socket.id} disconnected due to ${reason}`);
   });
 
-  socket.on('drawing', (message) => {
+  socket.on('drawing', (message: any) => {
     // Send the data to all other clients
     socket.broadcast.emit('drawing', message);
   });
 
-  socket.on('updateGameState', (gs) => {
+  socket.on('updateGameState', (gs: any) => {
     socket.broadcast.emit('updateGameState', gs);
   });
 });
