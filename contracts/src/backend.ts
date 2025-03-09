@@ -2,9 +2,17 @@ import express, { Request, Response } from 'express';
 import http from 'http';
 //@ts-ignore
 import bodyParser from 'body-parser';
-import { GameCommitment } from './smartContract.js';
+import { GameCommitment, GameState, MAX_PLAYERS } from './smartContract.js';
 import { Verifier } from './verifier';
-import { Field, CircuitString, Mina, PrivateKey, AccountUpdate } from 'o1js';
+import {
+  Field,
+  CircuitString,
+  Mina,
+  PrivateKey,
+  AccountUpdate,
+  PublicKey,
+  Bool,
+} from 'o1js';
 import { Server } from 'socket.io';
 
 // Setup express app
@@ -37,15 +45,23 @@ app.post('/deploy', async (req: Request, res: any) => {
   }
 
   try {
+    const gameState = new GameState({
+      scores: Array(MAX_PLAYERS).fill(PublicKey.empty()),
+      ownerKey: PublicKey.empty(),
+      playerWhoGuessedCount: Field(0),
+      gameEnded: Bool(false),
+    });
     const deployTxn = await Mina.transaction(deployerAccount, async () => {
       AccountUpdate.fundNewAccount(deployerAccount);
       await zkAppInstance.deploy();
-      await zkAppInstance.initState(CircuitString.fromString(word));
+      await zkAppInstance.initState(CircuitString.fromString(word), gameState);
     });
     await deployTxn.prove();
     await deployTxn.sign([deployerKey, zkAppPrivateKey]).send();
 
-    res.status(200).json({ message: 'Contract deployed and initialized.' });
+    res
+      .status(200)
+      .json({ message: 'Contract deployed and initialized.', gameState });
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: 'Failed to deploy contract' });
@@ -54,7 +70,7 @@ app.post('/deploy', async (req: Request, res: any) => {
 
 // REST endpoint to verify a guess
 app.post('/verify-guess', async (req: Request, res: any) => {
-  const { guess } = req.body;
+  const { guess, gameState } = req.body;
 
   if (!guess) {
     return res.status(400).json({ error: 'No guess provided' });
@@ -65,7 +81,7 @@ app.post('/verify-guess', async (req: Request, res: any) => {
     const verifier = new Verifier(zkAppInstance, zkAppPrivateKey);
 
     // Verify the guess
-    await verifier.verifyGuess(senderAccount.key, guess);
+    await verifier.verifyGuess(senderAccount.key, guess, gameState);
 
     console.log(`✅ Guess "${guess}" is correct!`);
 

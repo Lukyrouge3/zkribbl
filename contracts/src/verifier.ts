@@ -1,4 +1,4 @@
-import { GameCommitment } from './smartContract.js';
+import { GameCommitment, GameState } from './smartContract.js';
 import {
   Field,
   CircuitString,
@@ -20,11 +20,31 @@ export class Verifier {
   }
 
   // Verify a user's guess
-  async verifyGuess(guesserAccount: PrivateKey, guess: string) {
+  async verifyGuess(
+    guesserAccount: PrivateKey,
+    guess: string,
+    gameState: GameState
+  ) {
     const txn = await Mina.transaction(
       guesserAccount.toPublicKey(),
       async () => {
-        await this.zkAppInstance.verifyGuess(CircuitString.fromString(guess));
+        await this.zkAppInstance.verifyGuess(
+          CircuitString.fromString(guess),
+          guesserAccount.toPublicKey(),
+          gameState
+        );
+      }
+    );
+
+    await txn.prove();
+    await txn.sign([guesserAccount]).send();
+  }
+
+  async verifyGame(guesserAccount: PrivateKey, gameState: GameState) {
+    const txn = await Mina.transaction(
+      guesserAccount.toPublicKey(),
+      async () => {
+        await this.zkAppInstance.verifyGameHash(gameState);
       }
     );
 
