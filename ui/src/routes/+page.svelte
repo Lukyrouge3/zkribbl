@@ -105,11 +105,14 @@
 		guessing = true;
 
 		guess = guess.trim().toLowerCase();
-		const res = await axios.post('http://localhost:8080/verify-guess', { guess, gameState });
-		if (res.status == 200) {
-			guessed = true;
+		try {
+			const res = await axios.post('http://localhost:8080/verify-guess', { guess, gameState });
+			if (res.status == 200) {
+				guessed = true;
+				socket;
+			}
 			socket.emit('updateGameState', gameState);
-		}
+		} catch (e) {}
 		guesses = [...guesses, guess];
 		guess = '';
 		guessing = false;
