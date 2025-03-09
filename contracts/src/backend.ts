@@ -1,12 +1,15 @@
 import express, { Request, Response } from 'express';
+import http from 'http';
 //@ts-ignore
 import bodyParser from 'body-parser';
-import { WordCommitment } from './WordCommitment.js';
-import { GuessVerifier } from './GuessVerifier.js';
+import { GameCommitment } from './smartContract.js';
+import { Verifier } from './verifier';
 import { Field, CircuitString, Mina, PrivateKey, AccountUpdate } from 'o1js';
+import { Server } from 'socket.io';
 
 // Setup express app
 const app = express();
+const server = http.createServer(app);
 const port = 8080;
 
 // Middleware to parse JSON bodies
@@ -25,7 +28,7 @@ const senderAccount = Local.testAccounts[1];
 // Create zkApp destination (zkApp address and private key)
 const zkAppPrivateKey = PrivateKey.random();
 const zkAppAddress = zkAppPrivateKey.toPublicKey();
-const zkAppInstance = new WordCommitment(zkAppAddress);
+const zkAppInstance = new GameCommitment(zkAppAddress);
 
 app.post('/deploy', async (req: Request, res: any) => {
   const { word } = req.body;
@@ -59,7 +62,7 @@ app.post('/verify-guess', async (req: Request, res: any) => {
 
   try {
     // Use GuessVerifier to check the guess
-    const verifier = new GuessVerifier(zkAppInstance, zkAppPrivateKey);
+    const verifier = new Verifier(zkAppInstance, zkAppPrivateKey);
 
     // Verify the guess
     await verifier.verifyGuess(senderAccount.key, guess);
@@ -75,7 +78,26 @@ app.post('/verify-guess', async (req: Request, res: any) => {
   }
 });
 
+const io = new Server(server);
+
+io.on('connection', (socket) => {
+  // console.log(`socket ${socket.id} connected`);
+
+  socket.on('disconnect', (reason) => {
+    // console.log(`socket ${socket.id} disconnected due to ${reason}`);
+  });
+
+  socket.on('drawing', (message) => {
+    // Send the data to all other clients
+    socket.broadcast.emit('drawing', message);
+  });
+
+  socket.on('updateGameState', (gs) => {
+    socket.broadcast.emit('updateGameState', gs);
+  });
+});
+
 // Start the server
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });
